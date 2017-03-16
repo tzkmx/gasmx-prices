@@ -1,19 +1,23 @@
 {
-	"name": "tzkmx/gasmx-prices-update",
-    "description": "",
-    "version": "1.0",
-    "keywords": [""],
-    "license": "",
+    "name": "jefrancomix/gasmx-prices-update",
+    "description": "Simple App to digest and share Gas Prices in Mxico, as published by datosabiertos.gob.mx",
+    "version": "0.1",
+    "keywords": ["gas", "mexico", "geolocalization", "open-data"],
+    "license": "BSD-3",
     "authors": [
         {
-            "name": "John Doe",
-            "email": "johndoe@foo.bar",
-            "homepage": "http://github.com",
+            "name": "Jesus E. Franco Martinez",
+            "email": "jefrancomix@gmail.com",
+            "homepage": "https://tzkmx.wordpress.com",
             "role": "Developer"
         }
     ],
-	"require": {
-        "symfony/console": "^2.7"
+    "require": {
+        "symfony/console": "^2.7",
+	"symfony/dom-crawler": "^3.2",
+	"doctrine/dbal": "^2.5",
+	"symfony/css-selector": "^3.2",
+        "guzzlehttp/guzzle": "^6.2"
     },
     "autoload": {
         "psr-4": {
