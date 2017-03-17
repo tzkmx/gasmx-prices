@@ -17,6 +17,8 @@ use Kevinrob\GuzzleCache\CacheMiddleware;
 use Doctrine\Common\Cache\FilesystemCache;
 use Kevinrob\GuzzleCache\Storage\DoctrineCacheStorage;
 use Kevinrob\GuzzleCache\Strategy\PublicCacheStrategy;
+use Symfony\Component\DomCrawler\Crawler;
+
 class GasmxPricesUpdateCommand extends Command {
     protected $cache_path;
     /**
@@ -79,19 +81,46 @@ class GasmxPricesUpdateCommand extends Command {
     }
 
     protected function receivePlaces( ResponseInterface $response ) {
-	    echo var_export($response->getHeaders(), true), "\n";
-	    $this->responses[__FUNCTION__]['value'] = $response->getBody();
-        //file_put_contents($this->cache_path . '/dump_places.xml', $response->getBody());
+	    $this->responses[__FUNCTION__]['value'] = $response->getBody()->getContents();
+	    $crawler = new Crawler($this->responses[__FUNCTION__]['value']);
+	    try {
+	        $this->noaddress = 0;
+            $crawler
+                ->filterXPath('//place')
+                /*->slice(2, 2)*/
+                ->each(function ($node, $i) {
+                    $x = (int)$node->filterXPath("//x")->text();
+                    $y = (int)$node->filterXPath("//y")->text();
+                    if($x == 0 && $y == 0) {
+                        $this->noaddress++;
+                        return;
+                    }
+
+                    echo "$i: {$node->attr('place_id')}\n";
+                    $node->children()->each(function($node, $i) {
+                        $name = $node->nodeName();
+                        if($name === 'location') {
+                            $node->children()->each(function($node, $i) {
+                                echo "{$node->nodeName()}\t{$node->text()}\n";
+                            });
+                            return;
+                        }
+                        echo "{$name}\t{$node->text()}\n";
+                    });
+                });
+            echo "Estaciones sin coordenadas: {$this->noaddress}\n";
+        } catch(\Exception $e) {
+	        echo $e->getMessage();
+        }
     }
 
     protected function receivePrices( ResponseInterface $response ) {
-        echo var_export($response->getHeaders(), true), "\n";
-        $this->responses[__FUNCTION__]['value'] = $response->getBody();
+        $this->responses[__FUNCTION__]['value'] = $response->getBody()->getContents();
         //file_put_contents($this->cache_path . '/dump_prices.xml', $response->getBody());
     }
 
     protected function handleException( \Exception $e ) {
-        $e->getMessage();
+        echo $e->getMessage();
     }
 
     protected function prepareClient() {
