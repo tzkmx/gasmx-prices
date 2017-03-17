@@ -7,24 +7,22 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use GuzzleHttp\Client;
-use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Promise;
 use Psr\Http\Message\ResponseInterface;
-use GuzzleHttp\HandlerStack;
-use Kevinrob\GuzzleCache\CacheMiddleware;
-use Doctrine\Common\Cache\FilesystemCache;
-use Kevinrob\GuzzleCache\Storage\DoctrineCacheStorage;
-use Kevinrob\GuzzleCache\Strategy\PublicCacheStrategy;
 use Symfony\Component\DomCrawler\Crawler;
+use Pimple\Container;
 
 class GasmxPricesUpdateCommand extends Command {
-    protected $cache_path;
     /**
      * @var ClientInterface
      */
     protected $client;
+
+    /**
+     * @var Container
+     */
+    protected $container;
 
     protected $promises;
     protected $responses;
@@ -32,7 +30,13 @@ class GasmxPricesUpdateCommand extends Command {
 
     protected $ignore_cache = false;
 
-	protected function configure() {
+    public function __construct(Container $container)
+    {
+        parent::__construct();
+        $this->container = $container;
+    }
+
+    protected function configure() {
         $this
 			->setName('gasprices:download')
             ->setDescription('The command description goes here')
@@ -47,7 +51,7 @@ class GasmxPricesUpdateCommand extends Command {
 		$output->writeln('gasprices:download options ' . var_export($input->getOptions(), true) );
         $output->writeln('Places endpoint received: ' . $input->getArgument('places'));
         $output->writeln('Prices endpoint received: ' . $input->getArgument('prices'));
-        $this->cache_path = realpath(__DIR__ . '/../../../var/cache');
+
         if($input->getOption('no-cache')) {
             $output->writeln('ignoring cache, force download');
             $this->ignore_cache = true;
@@ -61,10 +65,10 @@ class GasmxPricesUpdateCommand extends Command {
             $this->makeRequest($input->getArgument('prices'), 'receivePrices');
             $this->makeRequest($input->getArgument('places'), 'receivePlaces');
             Promise\settle($this->promises)->wait();
-        } catch (RequestException $e) {
-            $output->writeln('<error>End with error</error>');
+        } catch (\Throwable $e) {
+            $output->writeln($e->getMessage());
         } finally {
-
+            $output->writeln('Max memory: ' . memory_get_peak_usage(true));
         }
     }
 
@@ -163,14 +167,9 @@ class GasmxPricesUpdateCommand extends Command {
 	        return;
         }
         if($this->ignore_cache) {
-	        $this->client = new Client();
+	        $this->client = $this->container['http.client.nocache'];
 	        return;
         }
-	    $stack = HandlerStack::create();
-	    $cache = new FilesystemCache($this->cache_path);
-	    $storage = new DoctrineCacheStorage($cache);
-	    $strategy = new PublicCacheStrategy($storage);
-        $stack->push(new CacheMiddleware($strategy), 'cache');
-        $this->client = new Client(['handler' => $stack]);
+        $this->client = $this->container['http.client.cache'];
     }
 }
