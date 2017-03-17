@@ -27,6 +27,8 @@ class GasmxPricesUpdateCommand extends Command {
     protected $promises;
     protected $responses;
 
+    protected $ignore_cache = false;
+
 	protected function configure() {
         $this
 			->setName('gasprices:download')
@@ -43,6 +45,10 @@ class GasmxPricesUpdateCommand extends Command {
         $output->writeln('Places endpoint received: ' . $input->getArgument('places'));
         $output->writeln('Prices endpoint received: ' . $input->getArgument('prices'));
         $this->cache_path = realpath(__DIR__ . '/../../../var/cache');
+        if($input->getOption('no-cache')) {
+            $output->writeln('ignoring cache, force download');
+            $this->ignore_cache = true;
+        }
         $this->getApiData($input, $output);
     }
 
@@ -92,6 +98,10 @@ class GasmxPricesUpdateCommand extends Command {
 	    if((! is_null($this->client)) &&
 	        in_array(class_implements(get_class($this->client)), [ClientInterface::class])
         ) {
+	        return;
+        }
+        if($this->ignore_cache) {
+	        $this->client = new Client();
 	        return;
         }
 	    $stack = HandlerStack::create();
