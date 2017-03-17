@@ -12,7 +12,11 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Promise;
 use Psr\Http\Message\ResponseInterface;
-
+use GuzzleHttp\HandlerStack;
+use Kevinrob\GuzzleCache\CacheMiddleware;
+use Doctrine\Common\Cache\FilesystemCache;
+use Kevinrob\GuzzleCache\Storage\DoctrineCacheStorage;
+use Kevinrob\GuzzleCache\Strategy\PublicCacheStrategy;
 class GasmxPricesUpdateCommand extends Command {
     protected $cache_path;
     /**
@@ -21,6 +25,7 @@ class GasmxPricesUpdateCommand extends Command {
     protected $client;
 
     protected $promises;
+    protected $responses;
 
 	protected function configure() {
         $this
@@ -38,7 +43,11 @@ class GasmxPricesUpdateCommand extends Command {
         $output->writeln('Places endpoint received: ' . $input->getArgument('places'));
         $output->writeln('Prices endpoint received: ' . $input->getArgument('prices'));
         $this->cache_path = realpath(__DIR__ . '/../../../var/cache');
-        $this->client = new Client();
+        $this->getApiData($input, $output);
+    }
+
+    protected function getApiData(InputInterface $input, OutputInterface $output) {
+        $this->prepareClient();
         try {
             $this->makeRequest($input->getArgument('prices'), 'receivePrices');
             $this->makeRequest($input->getArgument('places'), 'receivePlaces');
@@ -46,7 +55,7 @@ class GasmxPricesUpdateCommand extends Command {
         } catch (RequestException $e) {
             $output->writeln('<error>End with error</error>');
         } finally {
-            var_export(get_object_vars($this));
+
         }
     }
 
@@ -64,18 +73,32 @@ class GasmxPricesUpdateCommand extends Command {
     }
 
     protected function receivePlaces( ResponseInterface $response ) {
-	    echo __FUNCTION__, "\n";
-	    $this->promises[__FUNCTION__]['value'] = $response->getBody();
+	    echo var_export($response->getHeaders(), true), "\n";
+	    $this->responses[__FUNCTION__]['value'] = $response->getBody();
         //file_put_contents($this->cache_path . '/dump_places.xml', $response->getBody());
     }
 
     protected function receivePrices( ResponseInterface $response ) {
-        echo __FUNCTION__, "\n";
-        $this->promises[__FUNCTION__]['value'] = $response->getBody();
+        echo var_export($response->getHeaders(), true), "\n";
+        $this->responses[__FUNCTION__]['value'] = $response->getBody();
         //file_put_contents($this->cache_path . '/dump_prices.xml', $response->getBody());
     }
 
     protected function handleException( \Exception $e ) {
         $e->getMessage();
+    }
+
+    protected function prepareClient() {
+	    if((! is_null($this->client)) &&
+	        in_array(class_implements(get_class($this->client)), [ClientInterface::class])
+        ) {
+	        return;
+        }
+	    $stack = HandlerStack::create();
+	    $cache = new FilesystemCache($this->cache_path);
+	    $storage = new DoctrineCacheStorage($cache);
+	    $strategy = new PublicCacheStrategy($storage);
+        $stack->push(new CacheMiddleware($strategy), 'cache');
+        $this->client = new Client(['handler' => $stack]);
     }
 }
