@@ -28,6 +28,7 @@ class GasmxPricesUpdateCommand extends Command {
 
     protected $promises;
     protected $responses;
+    protected $nodes;
 
     protected $ignore_cache = false;
 
@@ -87,7 +88,7 @@ class GasmxPricesUpdateCommand extends Command {
 	        $this->noaddress = 0;
             $crawler
                 ->filterXPath('//place')
-                /*->slice(2, 2)*/
+                ->slice(2, 2)
                 ->each(function ($node, $i) {
                     $x = (int)$node->filterXPath("//x")->text();
                     $y = (int)$node->filterXPath("//y")->text();
@@ -95,24 +96,56 @@ class GasmxPricesUpdateCommand extends Command {
                         $this->noaddress++;
                         return;
                     }
-
-                    echo "$i: {$node->attr('place_id')}\n";
-                    $node->children()->each(function($node, $i) {
-                        $name = $node->nodeName();
-                        if($name === 'location') {
-                            $node->children()->each(function($node, $i) {
-                                echo "{$node->nodeName()}\t{$node->text()}\n";
-                            });
-                            return;
-                        }
-                        echo "{$name}\t{$node->text()}\n";
-                    });
+                    $placeId = $node->attr('place_id');
+                    $this->makeReverseGeocodingRequest($y, $x, $placeId, $node);
                 });
             echo "Estaciones sin coordenadas: {$this->noaddress}\n";
         } catch(\Exception $e) {
 	        echo $e->getMessage();
         }
     }
+    protected function makeReverseGeocodingRequest($latitud, $longitud, $placeId, Crawler $node) {
+        // http://maps.googleapis.com/maps/api/geocode/json?latlng=22.3953,-97.8934
+	    $url = sprintf('http://maps.googleapis.com/maps/api/geocode/json?latlng=%s,%s', $latitud, $longitud);
+	    $this->nodes[$placeId] = $node;
+
+	    $this->makeRequest($url, "receiveReverseGeocoding_{$placeId}");
+    }
+    public function __call($name, $arguments)
+    {
+        if(0 === strpos($name, 'receiveReverseGeocoding')) {
+            $id = str_replace('receiveReverseGeocoding_', '', $name);
+            $this->receiveRGR( $arguments[0], $id );
+        }
+    }
+    protected function receiveRGR( ResponseInterface $response, $nodeId ) {
+	    $preResult = json_decode($response->getBody()->getContents(), true);
+	    if($preResult['status'] === 'OK') {
+	        echo $preResult['results'][0]['formatted_address'], "\n";
+	        foreach($preResult['results'] as $result) {
+	            if(in_array('administrative_area_level_1', $result['types'])) {
+	                foreach($result['address_components'] as $comp) {
+	                    if(in_array('administrative_area_level_1', $comp['types'])) {
+	                        echo $comp['long_name'], "\n";
+                        }
+                    }
+                }
+            }
+	        //var_dump($preResult['results']);
+        }
+	    $node = $this->nodes[$nodeId];
+        $node->children()->each(function($node, $i) {
+            $name = $node->nodeName();
+            if($name === 'location') {
+                $node->children()->each(function($node, $i) {
+                    echo "{$node->nodeName()}\t{$node->text()}\n";
+                });
+                return;
+            }
+            echo "{$name}\t{$node->text()}\n";
+        });
+    }
+
 
     protected function receivePrices( ResponseInterface $response ) {
         $this->responses[__FUNCTION__]['value'] = $response->getBody()->getContents();
