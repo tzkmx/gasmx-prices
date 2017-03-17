@@ -88,10 +88,10 @@ class GasmxPricesUpdateCommand extends Command {
 	        $this->noaddress = 0;
             $crawler
                 ->filterXPath('//place')
-                ->slice(2, 2)
+                ->slice(2, 200)
                 ->each(function ($node, $i) {
-                    $x = (int)$node->filterXPath("//x")->text();
-                    $y = (int)$node->filterXPath("//y")->text();
+                    $x = (float)$node->filterXPath("//x")->text();
+                    $y = (float)$node->filterXPath("//y")->text();
                     if($x == 0 && $y == 0) {
                         $this->noaddress++;
                         return;
