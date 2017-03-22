@@ -157,7 +157,7 @@ class GasmxPricesUpdateCommand extends Command {
     }
 
     protected function handleException( \Exception $e ) {
-        echo $e->getMessage();
+        echo $e->getMessage(), "\n";
     }
 
     protected function prepareClient() {

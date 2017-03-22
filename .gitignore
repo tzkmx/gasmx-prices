@@ -2,3 +2,4 @@ vendor/
 .idea/
 var/
 .env
+*.db
