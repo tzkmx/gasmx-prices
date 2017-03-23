@@ -9,20 +9,16 @@ class StationRepositoryTest extends TestCase
 {
     public function testInsertQueryIsCalled()
     {
-        $dbal = $this->getMockBuilder(Connection::class)
-            ->setMethods(['insert'])
-            ->getMock();
+        $prophecy = $this->prophesize(Connection::class)
+        ->willImplement('Doctrine\DBAL\Driver\Connection');
 
-        $dbal->expects($this->once())
-            ->method('insert')
-            ->with(
-                $this->equalto('places'),
-                $this->equalto([
-                    'place_id' => 1,
-                    'latitud' => 90,
-                    'longitud' => 15,
-                ])
-            );
+        $prophecy->insert('places', [
+            'place_id' => 1,
+            'latitud' => 90,
+            'longitud' => 15,
+        ])->shouldBeCalled();
+
+        $dbal = $prophecy->reveal();
 
         $repo = new StationRepository($dbal);
         $repo->updatePlace(1, ['latitud' => 90, 'longitud' => 15]);

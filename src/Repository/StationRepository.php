@@ -1,7 +1,7 @@
 <?php
 
 namespace GasmxPricesUpdate\Repository;
-use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Driver\Connection;
 
 class StationRepository
 {
