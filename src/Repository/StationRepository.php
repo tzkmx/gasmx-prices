@@ -18,7 +18,7 @@ class StationRepository
     public function updatePlace(int $place_id, $fields)
     {
         $row = array_merge(['place_id' => $place_id], $fields);
-        $this->db->insert('places', $row);
+        return $this->db->insert('places', $row);
     }
 
 }

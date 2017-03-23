@@ -16,11 +16,14 @@ class StationRepositoryTest extends TestCase
             'place_id' => 1,
             'latitud' => 90,
             'longitud' => 15,
-        ])->shouldBeCalled();
+        ])
+            ->shouldBeCalled()
+            ->willReturn(1);
 
         $dbal = $prophecy->reveal();
 
         $repo = new StationRepository($dbal);
-        $repo->updatePlace(1, ['latitud' => 90, 'longitud' => 15]);
+        $r = $repo->updatePlace(1, ['latitud' => 90, 'longitud' => 15]);
+        $this->assertEquals(1, $r);
     }
 }
