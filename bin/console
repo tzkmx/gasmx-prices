@@ -3,7 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use Symfony\Component\Console\Application;
-use GasmxPricesUpdate\Command\GasmxPricesUpdate\GasmxPricesUpdateCommand;
+use GasmxPricesUpdate\Command\GasmxPricesUpdate\GasmxPlacesUpdateCommand;
 use Pimple\Container;
 use GasmxPricesUpdate\Provider\HttpClientProvider;
 use GasmxPricesUpdate\Provider\DatabaseProvider;
@@ -25,7 +25,7 @@ $c['console.app'] = function($c) {
     return $app;
 };
 $c['gasmx.prices.update'] = function($c) {
-    return new GasmxPricesUpdateCommand($c);
+    return new GasmxPlacesUpdateCommand($c);
 };
 $c['gasmx.prices.createdb'] = function($c) {
     return new PlacesTableGeneratorCommand($c);

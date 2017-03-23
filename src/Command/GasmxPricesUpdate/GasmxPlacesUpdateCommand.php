@@ -12,8 +12,9 @@ use GuzzleHttp\Promise;
 use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Pimple\Container;
+use GuzzleHttp\Pool;
 
-class GasmxPricesUpdateCommand extends Command {
+class GasmxPlacesUpdateCommand extends Command {
     /**
      * @var ClientInterface
      */
@@ -38,8 +39,8 @@ class GasmxPricesUpdateCommand extends Command {
 
     protected function configure() {
         $this
-			->setName('gasprices:download')
-            ->setDescription('The command description goes here')
+			->setName('gasprices:placesupdate')
+            ->setDescription('Download Places API Data and store it in database')
             ->setHelp('The command help text goes here')
             ->addArgument('places', InputArgument::REQUIRED, 'Endpoint for download of PLACES data')
             ->addArgument('prices', InputArgument::REQUIRED, 'Endpoint for download of PRICES data')
@@ -48,7 +49,7 @@ class GasmxPricesUpdateCommand extends Command {
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
-		$output->writeln('gasprices:download options ' . var_export($input->getOptions(), true) );
+		$output->writeln('gasprices:placesupdate options ' . var_export($input->getOptions(), true) );
         $output->writeln('Places endpoint received: ' . $input->getArgument('places'));
         $output->writeln('Prices endpoint received: ' . $input->getArgument('prices'));
 
@@ -57,6 +58,9 @@ class GasmxPricesUpdateCommand extends Command {
             $this->ignore_cache = true;
         }
         $this->getApiData($input, $output);
+        foreach($this->soFars as $msg) {
+            $output->writeln($msg);
+        }
     }
 
     protected function getApiData(InputInterface $input, OutputInterface $output) {
@@ -68,11 +72,12 @@ class GasmxPricesUpdateCommand extends Command {
         } catch (\Throwable $e) {
             $output->writeln($e->getMessage());
         } finally {
-            $output->writeln('Max memory: ' . memory_get_peak_usage(true));
+            $this->soFar(__METHOD__);
         }
     }
 
     protected function makeRequest( $endpoint, $receiver ) {
+        $this->soFar(__METHOD__);
         $this->promises[$receiver] = $this->client->getAsync( $endpoint );
         $this->promises[$receiver]->then(
             function($response) use($receiver) {
@@ -86,13 +91,14 @@ class GasmxPricesUpdateCommand extends Command {
     }
 
     protected function receivePlaces( ResponseInterface $response ) {
+        $this->soFar(__METHOD__);
 	    $this->responses[__FUNCTION__]['value'] = $response->getBody()->getContents();
 	    $crawler = new Crawler($this->responses[__FUNCTION__]['value']);
 	    try {
 	        $this->noaddress = 0;
             $crawler
                 ->filterXPath('//place')
-                ->slice(2, 200)
+                ->slice(2, 2000)
                 ->each(function ($node, $i) {
                     $x = (float)$node->filterXPath("//x")->text();
                     $y = (float)$node->filterXPath("//y")->text();
@@ -122,7 +128,31 @@ class GasmxPricesUpdateCommand extends Command {
             $this->receiveRGR( $arguments[0], $id );
         }
     }
+    public function soFar($caller = null)
+    {
+        $mpeak = memory_get_peak_usage(true);
+        if(isset($this->mpeak)) {
+            $diff = $mpeak - $this->mpeak;
+            $this->mpeak = $mpeak;
+        } else {
+            $this->soFars = array();
+            $this->mpeak = $diff = $mpeak;
+        }
+        $caller = (string)$caller;
+
+        $mu = round($mpeak / 1000000, 2) . 'MB';
+        $l = count($this->soFars);
+        $msg = "{$caller}\tUsed memory so far: {$mu}\tDifference:{$diff}\n";
+        if($l === 0) {
+            $this->soFars[] = $msg;
+            return;
+        }
+        if($msg !== $this->soFars[$l - 1]) {
+            $this->soFars[] = $msg;
+        }
+    }
     protected function receiveRGR( ResponseInterface $response, $nodeId ) {
+        $this->soFar(__METHOD__);
 	    $preResult = json_decode($response->getBody()->getContents(), true);
 	    if($preResult['status'] === 'OK') {
 	        echo $preResult['results'][0]['formatted_address'], "\n";
@@ -152,15 +182,18 @@ class GasmxPricesUpdateCommand extends Command {
 
 
     protected function receivePrices( ResponseInterface $response ) {
+        $this->soFar(__METHOD__);
         $this->responses[__FUNCTION__]['value'] = $response->getBody()->getContents();
         //file_put_contents($this->cache_path . '/dump_prices.xml', $response->getBody());
     }
 
     protected function handleException( \Exception $e ) {
+        $this->soFar(__METHOD__);
         echo $e->getMessage(), "\n";
     }
 
     protected function prepareClient() {
+        $this->soFar(__METHOD__);
 	    if((! is_null($this->client)) &&
 	        in_array(class_implements(get_class($this->client)), [ClientInterface::class])
         ) {
