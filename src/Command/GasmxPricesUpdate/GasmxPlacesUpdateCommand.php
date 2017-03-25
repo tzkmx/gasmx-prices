@@ -49,7 +49,7 @@ class GasmxPlacesUpdateCommand extends Command {
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
-		$output->writeln('gasprices:placesupdate options ' . var_export($input->getOptions(), true) );
+		$output->writeln('gasprices:placesupdate options ' . var_export($input->getOptions(),true) );
         $output->writeln('Places endpoint received: ' . $input->getArgument('places'));
         $output->writeln('Prices endpoint received: ' . $input->getArgument('prices'));
 
@@ -153,6 +153,7 @@ class GasmxPlacesUpdateCommand extends Command {
     }
     protected function receiveRGR( ResponseInterface $response, $nodeId ) {
         $this->soFar(__METHOD__);
+        gc_collect_cycles();
 	    $preResult = json_decode($response->getBody()->getContents(), true);
 	    if($preResult['status'] === 'OK') {
 	        echo $preResult['results'][0]['formatted_address'], "\n";
